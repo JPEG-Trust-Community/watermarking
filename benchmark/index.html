@@ -1,20 +1,568 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <title>JPEG Trust Benchmark</title>
-  <LINK href="styles.css" rel="stylesheet" type="text/css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="JPEG Trust Watermarking Benchmark | ICIP 2026 Grand Challenge">
+  <meta name="description" content="ICIP 2026 Grand Challenge benchmarking media watermarking performance aligned with JPEG Trust Part 3: Media Asset Watermarking, including robustness under JPEG AI/JPEG XL and generative AI manipulation pipelines.">
+  <meta name="keywords" content="watermarking, benchmarking, JPEG Trust, ICIP 2026, media authenticity, robustness, BER, PSNR, wPSNR, SSIM, JPEG AI, JPEG XL, generative AI attacks">
+  <meta name="author" content="Deepayan Bhowmik, Touradj Ebrahimi, Sabrina Caldwell, Frederik Temmermans">
+  <meta name="robots" content="index, follow">
+  <meta name="language" content="English">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="JPEG Trust Watermarking Benchmark">
+  <meta property="og:title" content="JPEG Trust Watermarking Benchmark | ICIP 2026 Grand Challenge">
+  <meta property="og:description" content="Benchmarking watermark embedding distortion and robustness to attacks under evaluation criteria aligned with JPEG Trust Part 3.">
+  <meta property="og:url" content="https://YOUR_DOMAIN.com/YOUR_PROJECT_PAGE">
+  <meta property="og:image" content="static/images/social_preview.png">
+  <meta property="og:image:alt" content="JPEG Trust Watermarking Benchmark - ICIP 2026">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@YOUR_TWITTER_HANDLE">
+  <meta name="twitter:title" content="JPEG Trust Watermarking Benchmark | ICIP 2026 Grand Challenge">
+  <meta name="twitter:description" content="ICIP 2026 Grand Challenge benchmarking media watermarking performance aligned with JPEG Trust Part 3.">
+  <meta name="twitter:image" content="static/images/social_preview.png">
+
+  <meta name="theme-color" content="#2563eb">
+
+  <title>JPEG Trust Watermarking Benchmark | ICIP 2026 Grand Challenge</title>
+
+  <!-- Favicon -->
+  <!-- <link rel="icon" type="image/x-icon" href="static/images/favicon.ico"> -->
+  <!-- <link rel="apple-touch-icon" href="static/images/favicon.ico"> -->
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <link rel="preload" href="static/css/bulma-carousel.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/bulma-slider.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="static/css/fontawesome.all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+
+  <noscript>
+    <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  </noscript>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- JS -->
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/bulma-carousel.min.js"></script>
+  <script defer src="static/js/bulma-slider.min.js"></script>
+  <script defer src="static/js/index.js"></script>
+
+  <style>
+    .tag.is-soft { background: #eef2ff; color: #1e3a8a; border: 1px solid #c7d2fe; }
+    .box.is-elevated { box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.06); }
+    .mini-muted { color: #64748b; }
+    .section-anchor { scroll-margin-top: 24px; }
+    .timeline-table td, .timeline-table th { vertical-align: top; }
+    .tight-list li { margin-bottom: .4rem; }
+  </style>
 </head>
 
 <body>
 
-<p>
-  We'll fill out the content here. 
-</p>
-<p>
-  Coming soon
-</p>
+  <!-- Scroll to Top Button -->
+  <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <main id="main-content">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-body">
+        <div class="container is-max-desktop">
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+
+              <h1 class="title is-1 publication-title">JPEG Trust Watermarking Benchmark</h1>
+
+              <div class="is-size-5 publication-authors" style="margin-top: .25rem;">
+                <span class="author-block">
+                  <a href="WEB_LINK_DEEPAYAN" target="_blank" rel="noopener">Deepayan Bhowmik</a>,
+                </span>
+                <span class="author-block">
+                  <a href="WEB_LINK_TOURADJ" target="_blank" rel="noopener">Touradj Ebrahimi</a>,
+                </span>
+                <span class="author-block">
+                  <a href="WEB_LINK_SABRINA" target="_blank" rel="noopener">Sabrina Caldwell</a>,
+                </span>
+                <span class="author-block">
+                  <a href="WEB_LINK_FREDERIK" target="_blank" rel="noopener">Frederik Temmermans</a>
+                </span>
+              </div>
+
+              <div class="is-size-5 publication-authors">
+                <span class="author-block">
+                  ICIP 2026 Grand Challenge · JPEG Trust Part 3: Media Asset Watermarking
+                </span>
+              </div>
+
+
+              <div class="column has-text-centered">
+                <div class="publication-links">
+
+                  <span class="link-block">
+                    <a href="https://YOUR_CODABENCH_COMPETITION_URL" target="_blank"
+                       class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon"><i class="fas fa-trophy"></i></span>
+                      <span>Competition & Leaderboard</span>
+                    </a>
+                  </span>
+
+                  <span class="link-block">
+                    <a href="https://YOUR_REGISTRATION_URL" target="_blank"
+                       class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon"><i class="fas fa-clipboard-list"></i></span>
+                      <span>Register</span>
+                    </a>
+                  </span>
+
+                  <span class="link-block">
+                    <a href="https://YOUR_DATA_ACCESS_URL" target="_blank"
+                       class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon"><i class="fas fa-database"></i></span>
+                      <span>Dataset Access</span>
+                    </a>
+                  </span>
+
+
+                </div>
+
+                <p class="mini-muted" style="margin-top: .85rem;">
+                  <strong>Launch:</strong> February 11, 2026 &nbsp;·&nbsp;
+                  <strong>Close:</strong> April 15, 2026 &nbsp;·&nbsp;
+                  <strong>Top-3 announced:</strong> April 30, 2026
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DESCRIPTION / GOAL -->
+    <section class="section hero is-light section-anchor" id="overview">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Description & Goal</h2>
+            <div class="content has-text-justified">
+
+              <p>
+                This proposal aims to conduct a grand challenge on watermarking performance assessment
+                (e.g.,  embedding and robustness against attacks) along various evaluation criteria set out by the upcoming
+                <strong>JPEG Trust Part 3: Media Asset Watermarking</strong> international standard.
+              </p>
+
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MOTIVATION / BACKGROUND -->
+    <section class="section section-anchor" id="motivation">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Motivation & Background</h2>
+
+            <div class="content has-text-justified">
+              <p>
+                Digital watermarking, in use for several decades, has been increasingly adopted as a method for embedding
+                information directly into media assets in a way that can be both imperceptible and robust. This technique
+                establishes a link between the metadata and the content, one that is challenging to disrupt without compromising
+                the intended usage of the media asset itself. Since the inception and rapid rise of generative AI, watermarking
+                has increasingly gained popularity, both within the industry and among policymakers, as a solution to signal
+                whether the media asset is AI-generated or AI-manipulated content. Such watermarking is equally beneficial
+                for media assets generated outside the context of AI (e.g., photographs, edited images).
+              </p>
+              <p>
+                While growing efforts are noticeable in developing technologies, there is a need to have a standard framework
+                to signal the existence of and to assess the performance of watermarking. To facilitate globally interoperable
+                media asset authenticity, JPEG Committee (joint collaborative team between ISO/IEC JTC1/SC29/WG1 and ITU-T SG21),
+                via the JPEG Trust project, initiated the development of a new international standard: JPEG Trust Part 3:
+                Media Asset Watermarking, with the aim to strengthen the overall media trust ecosystem, which also complements
+                the development of the annotation based approach in JPEG Trust Part 1: Core foundation. JPEG Trust Part 3
+                arises from an exploration that began a year ago, focusing on the watermarking requirements for addressing
+                provenance, authenticity, integrity, copyright, and the identification of assets and stakeholders.
+              </p>
+
+            </div>
+
+              <div class="box is-elevated">
+                <h3 class="title is-5">Scope</h3>
+                <p>
+                  Participating teams will benchmark and report their algorithm’s performance over the provided benchmark
+                  dataset against the given evaluation test set (through Python packages/library). A leaderboard system
+                  would provide a comparison of their ranking.
+                </p>
+              </div>
+
+              <div class="notification is-info is-light">
+                Noteworthy features of this challenge include emerging evaluation criteria that have not been previously
+                used in the literature. This includes  <strong>JPEG AI</strong> and <strong>JPEG XL</strong> compression,
+                as well as a new <strong>generative AI-based media manipulation/editing pipeline</strong>.
+              </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PARTICIPATION RULES -->
+    <section class="section hero is-light section-anchor" id="participation">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Rules for Participation</h2>
+
+            <div class="content">
+              <div class="box is-elevated">
+                <ul class="tight-list">
+                  <li>This challenge is open to all (academia and industry). Teams with student participants must have one academic member of staff.</li>
+                  <li>Participants must register to join the challenge. After registration, they'll receive essential credentials and details about the different steps and actions expected from them.</li>
+                  <li>Participants can form a team (maximum of <strong>4</strong>) or submit individually.</li>
+                  <li>Participants will receive the benchmark suite either as a Python package or as open-source code.</li>
+                  <li>We limit the number of submissions per day to prevent brute-force attempts to achieve high scores.</li>
+                  <li>Competition data will be shared after completing the form and accepting the license agreement.</li>
+                  <li>The first three teams on the leaderboard must submit their code to GitHub. The GitHub repository should be <strong>PUBLIC.</strong> Submitted repository must be readable, documented properly, and interactive. </li>
+                  <li>The first three teams' model files must be uploaded to the Google Drive link to check the ‘reproducibility’ of the code and indicate the link on GitHub. </li>
+                  <li>Only submissions that meet the deadlines and milestones in the timeline will be considered for the final leaderboard.</li>
+                  <li>If any form of malicious attempts to influence the ranking is detected, the participant will be disqualified from the competition. </li>
+                  <li>Participants agree to abide by the license for the dataset.</li>
+                  <li>The organisers will take the final decision based on a transparent process.</li>
+
+                </ul>
+              </div>
+
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVALUATION -->
+    <section class="section section-anchor" id="evaluation">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Evaluation</h2>
+
+            <div class="content has-text-justified">
+              <p>
+                To decide the winner of this Challenge, the organising committee will consider the following items (emerging
+                evaluation criteria are marked with *):
+              </p>
+
+              <div class="columns is-multiline">
+
+                <div class="column is-12">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">1) Embedding distortion</h3>
+                    <p>Performance will be evaluated using <strong>PSNR</strong>, <strong>wPSNR</strong>, and <strong>SSIM</strong>.</p>
+                  </div>
+                </div>
+
+                <div class="column is-12">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">2) Watermarking robustness performance using Bit Error Rate (BER) against various watermarking attacks, including:</h3>
+
+                    <h4 class="title is-6">Compression attacks</h4>
+                    <ul class="tight-list">
+                      <li>*JPEG AI</li>
+                      <li>*JPEG XL</li>
+                      <li>JPEG 2000</li>
+                      <li>JPEG 1</li>
+                    </ul>
+
+                    <h4 class="title is-6" style="margin-top: 1rem;">Signal processing attacks</h4>
+                    <ul class="tight-list">
+                      <li>Gaussian noise</li>
+                      <li>Speckle noise</li>
+                      <li>Blurring</li>
+                      <li>Brightness</li>
+                      <li>Sharpness</li>
+                      <li>Filtering techniques</li>
+                    </ul>
+
+                    <h4 class="title is-6" style="margin-top: 1rem;">Geometric attacks</h4>
+                    <ul class="tight-list">
+                      <li>Rotation</li>
+                      <li>Cropping</li>
+                      <li>Resizing</li>
+                      <li>Scaling</li>
+                      <li>Flipping</li>
+                    </ul>
+
+                    <h4 class="title is-6" style="margin-top: 1rem;">Generative AI manipulation attacks</h4>
+                    <ul class="tight-list">
+                      <li>GAN-based</li>
+                      <li>Diffusion-based</li>
+                      <li>*AI-manipulation pipeline</li>
+                    </ul>
+
+                    <h4 class="title is-6" style="margin-top: 1rem;">Forgery attacks</h4>
+                    <ul class="tight-list">
+                      <li>Copy attack</li>
+                      <li>GAN-based forgery to deceive the detection system</li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">3) Reproducibility</h3>
+                    <p>All results must be reproducible using the provided scripts and models.</p>
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">4) Class-wide performance</h3>
+                    <p>Balanced performance across all attacks is essential.</p>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATASET -->
+    <section class="section hero is-light section-anchor" id="dataset">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Dataset</h2>
+
+            <div class="content has-text-justified">
+              <p>
+                The organisers will provide participants with the training dataset for potential machine-learning-based
+                watermarking algorithms. This does not preclude participants from developing non-machine-learning algorithms
+                if they choose to. The test dataset will be unknown to participants and will be released only after the grand
+                challenge is complete.  Due to the nature of the challenge, ground-truth data will only be available for a
+                limited number of watermarking attacks, such as AI-based manipulation and cropping attacks.
+              </p>
+
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIMELINE -->
+    <section class="section section-anchor" id="timeline">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Deadlines</h2>
+
+            <div class="content">
+              <div class="box is-elevated">
+                <div class="table-container">
+                  <table class="table is-fullwidth timeline-table">
+                    <thead>
+                      <tr>
+                        <th>Milestone</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Launch of the challenge</td><td><strong>February 11, 2026</strong></td></tr>
+                      <tr><td>E-registration</td><td><strong>February 11, 2026</strong></td></tr>
+                      <tr><td>Release of the dataset</td><td><strong>February 11, 2026</strong></td></tr>
+                      <tr><td>Close of the competition</td><td><strong>April 15, 2026</strong></td></tr>
+                      <tr><td>Announcement of the top three winning teams</td><td><strong>April 30, 2026</strong></td></tr>
+                      <tr><td>Paper submission (Grand Challenge Paper Submission)</td><td><strong>May 13, 2026</strong></td></tr>
+                      <tr><td>Paper acceptance notification</td><td><strong>June 10, 2026</strong></td></tr>
+                      <tr><td>Camera-ready</td><td><strong>July 1, 2026</strong></td></tr>
+                      <tr><td>Author registration</td><td><strong>July 16, 2026</strong></td></tr>
+                      <tr><td>Presentation by the winning team (1st place only) – ICIP 2026</td><td><strong>September 13–17, 2026</strong></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="notification is-info is-light">
+                <strong>Sponsorship:</strong> We are in discussions with a couple of industrial partners regarding sponsorship
+                (not confirmed yet).
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORGANIZERS -->
+    <section class="section hero is-light section-anchor" id="organizers">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column is-four-fifths">
+
+            <h2 class="title is-3 has-text-centered">Organizers</h2>
+
+            <div class="content has-text-justified">
+              <p>
+                All organisers have experience in workshops/tutorial organisations and leading international standards,
+                which are relevant for running the proposed grand challenge. Organisers have been active in watermarking
+                and the broader media forensics and security field for decades.
+              </p>
+
+
+            </div>
+
+            <div class="content">
+
+              <div class="columns is-multiline">
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">Dr Deepayan Bhowmik</h3>
+                    <p class="mini-muted">Newcastle University, UK · <a href="mailto:deepayan.bhowmik@newcastle.ac.uk">deepayan.bhowmik@newcastle.ac.uk</a></p>
+                    <p>
+                      Deepayan Bhowmik is a Senior Lecturer (Associate Professor) in Data Science and the Co-Director of
+                      Newcastle University Centre of Research Excellence in Data Science and AI, Newcastle University, UK.
+                      His research expertise includes fundamental image/signal processing, embedded imaging on heterogeneous
+                      hardware and related applications, e.g., media security, multimodal remote sensing for environmental
+                      monitoring, etc. Dr Bhowmik received his PhD in Electronic and Electrical Engineering (focused on media
+                      watermarking) from the University of Sheffield, UK, in 2011. He received a prestigious Dorothy Hodgkin
+                      postgraduate award and multiple research grants from various UK research councils, the EU, and industry.
+                      He is one of the key editors of the JPEG Trust international standard.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">Prof Touradj Ebrahimi</h3>
+                    <p class="mini-muted">EPFL, Switzerland · <a href="mailto:touradj.ebrahimi@epfl.ch">touradj.ebrahimi@epfl.ch</a></p>
+                    <p>
+                      Touradj Ebrahimi is a professor of image processing at Ecole Polytechnique Fédérale de Lausanne (EPFL)
+                      and the current Convener of the JPEG standardisation Committee. He has founded several startups and
+                      spinoff companies in the past two decades, including the most recent RayShaper SA, a startup based
+                      in Switzerland involved in AI-powered multimedia. His areas of interest include image and video compression,
+                      media security, quality of experience in multimedia, and AI-based image and video processing and analysis.
+                      Prof. Ebrahimi is a Fellow of the IEEE, SPIE, EURASIP, and AAIA and has been the recipient of several
+                      awards and distinctions, including an IEEE Star Innovator Award in Multimedia, an Emmy Award on behalf
+                      of JPEG, and the SMPTE Progress medal. He has been active in media security and trust, including technologies
+                      for watermarking and copyright protection, integrity verification, privacy protection, and conditional
+                      access for more than twenty years, and in deepfakes and synthetic media using generative AI technologies
+                      since 2018.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">Dr Sabrina Caldwell</h3>
+                    <p class="mini-muted">University of New South Wales, Australia · <a href="mailto:sabrina.caldwell@unsw.edu.au">sabrina.caldwell@unsw.edu.au</a></p>
+                    <p>
+                      Sabrina Caldwell is Senior Lecturer, Ethics in Technology at the University of New South Wales, Australia.
+                      Her area of research interest centers on images, specifically photo credibility. Key to her research
+                      is the important distinction between photographs (photos of real people, places and events) and manipulated
+                      images or photoart (images created or changed by image manipulation software and/or AI). She works
+                      in the area of physiological signal processing using neural networks, deep learning and bio-inspired
+                      computing, particularly as it pertains to human recognition of deception and affective reasoning. She is a
+                      member of the JPEG Committee, Co-chair of JPEG Trust, and Co-editor of the new international JPEG ISO
+                      standard on image credibility under development.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="box is-elevated">
+                    <h3 class="title is-5">Dr Frederik Temmermans</h3>
+                    <p class="mini-muted">Vrije Universiteit Brussel &amp; imec, Belgium · <a href="mailto:frederik.temmermans@vub.be">frederik.temmermans@vub.be</a></p>
+                    <p>
+                      Frederik Temmermans graduated in 2006 with a Master's in Computer Science. He received a PhD in
+                      Engineering in 2014. His research focuses on image processing, interoperable access to image data
+                      and media privacy, security, authenticity and integrity. He has been involved in various research
+                      projects in the medical, mobile and cultural domains. Frederik is an active member of the JPEG standardization
+                      committee (ISO/IEC JTC1/SC29/WG1) where he contributed to several standards such as JPSearch (ISO/IEC 24800),
+                      the JPEG Universal Metadata Box Format (ISO/IEC 19566-5) and JPEG Privacy and Security (ISO/IEC 19566-4)
+                      and chaired exploration studies on Media Blockchain, Fake Media and NFT. Frederik is also co-founder
+                      of the VUB spin-off company Universum Digitalis.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="notification is-light">
+                <strong>Contact:</strong> Please email the organizers above with questions about registration, dataset access, evaluation, or rules.
+              </div>
+
+              <p class="mini-muted">
+                The organizers have extensive experience in watermarking and media security, and in leading international standards relevant to running this challenge.
+              </p>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-8">
+            <div class="content">
+              <p>
+                This page was built using the
+                <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank" rel="noopener">Academic Project Page Template</a>
+                which was adopted from the <a href="https://nerfies.github.io" target="_blank" rel="noopener">Nerfies</a> project page.
+                You are free to borrow the source code of this website; please link back in the footer.
+                <br>
+                This website is licensed under a
+                <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <script>
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
 
 </body>
 </html>
