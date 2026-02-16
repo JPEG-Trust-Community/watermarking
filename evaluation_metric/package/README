@@ -1,16 +1,16 @@
 INSTALLATION:
 
 - Installing base dependencies:
-pip install git+https://github.com/Jessieweneedtocook/watermarkbench.git
+pip install git+https://github.com/JPEG-Trust-Community/evaluation_metric/package.git
 
 - Installing base dependencies + compressai:
-pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[compressai]"
+pip install "git+https://github.com/JPEG-Trust-Community/evaluation_metric/package.git#egg=watermarkbench[compressai]"
 
 - Installing base dependencies + jxl:
-pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[jxl]"
+pip install "git+https://github.com/JPEG-Trust-Community/evaluation_metric/package.git#egg=watermarkbench[jxl]"
 
 - Installing all required dependencies:
-pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[all]"
+pip install "git+https://github.com/JPEG-Trust-Community/evaluation_metric/package.git#egg=watermarkbench[all]"
 
 
 IMPORTING:
