@@ -1,1 +1,100 @@
-pip install packages.
+INSTALLATION:
+
+- Installing base dependencies:
+pip install git+https://github.com/Jessieweneedtocook/watermarkbench.git
+
+- Installing base dependencies + compressai:
+pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[compressai]"
+
+- Installing base dependencies + jxl:
+pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[jxl]"
+
+- Installing all required dependencies:
+pip install "git+https://github.com/Jessieweneedtocook/watermarkbench.git#egg=watermarkbench[all]"
+
+
+IMPORTING:
+
+import watermarkbench as wb
+
+
+ATTACKING
+
+- rotate:
+out_path = wb.attack.rotate("image.png", 15) # rotates image.png by 10 degrees
+
+- crop:
+out_path = wb.attack.crop("image.png", 10) # crops image.png by 10 percent
+
+- scaled:
+out_path = wb.attack.scaled("image.png", 0.5) # scales image.png by 0.5x
+
+- flipping:
+out_path = wb.attack.flipping("image.png", "H") # flips image.png horizontally
+
+- jpeg:
+out_path = wb.attack.jpeg("image.png", 50) # compresses image.png by Q = 50
+
+- jpeg2000:
+out_path = wb.attack.jpeg2000("image.png", 10) # compresses image.png by Q = 10
+
+- jpegai:
+out_path = wb.attack.jpegai("image.png", 1) # compresses image.png by Q = 1
+
+- jpegxl:
+out_path = wb.attack.jpegxl("image.png", 12) # compresses image.png by D = 12
+
+- gauissian noise:
+out_path = wb.attack.gaussian_noise("image.png", 0.01) # adds noise to image.png by σ = 0.01
+
+- speckle noise:
+out_path = wb.attack.speckle_noise("image.png", 0.3) # adds noise to image.png by σ = 0.3
+
+- blurring:
+out_path = wb.attack.blurring("image.png", 5.0) # blurs image.png by k = 5 x 5
+
+- brightness:
+out_path = wb.attack.brightness("image.png", 1.3) # brightens image.png by factor = 1.3
+
+- sharpness:
+out_path = wb.attack.sharpness("image.png", 1.25) # sharpens image.png by 1.25x
+
+- median filtering:
+out_path = wb.attack.median_filtering("image.png", 5) # median filters image.png by k = 5 x 5
+
+
+EMBEDDING METRICS:
+
+ssim = wb.embedding.SSIM("original.png", "watermarked.png") # calculates SSIM score
+psnr = wb.embedding.PSNR("original.png", "watermarked.png") # calculates PSNR score
+wpsnr = wb.embedding.WPSNR("original.png", "watermarked.png") # calculates wPSNR score
+mse = wb.embedding.MSE("original.png", "watermarked.png") # calculates MSE score
+jnd = wb.embedding.JNDPassRate("original.png", "watermarked.png") # calculates JND score
+
+
+EXTRACTING METRICS:
+
+ber = wb.extracting.BER("010101", "010001") # calculates bit error between ground truth and extracted watermark
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
