@@ -62,6 +62,17 @@ out_path = wb.attack.sharpness("image.png", 1.25) # sharpens image.png by 1.25x
 - median filtering:
 out_path = wb.attack.median_filtering("image.png", 5) # median filters image.png by k = 5 x 5
 
+- ai removal:
+out_path = wb.attack.remove_ai("image.png") # uses AI to remove an object in image.png
+
+- ai replacement:
+os.environ["OPENAI_API_KEY"] = "sk......." 
+out_path = wb.attack.replace_ai("image.png") # uses AI to replace an object in image.png
+
+- ai creation:
+os.environ["OPENAI_API_KEY"] = "sk......." 
+out_path = wb.attack.create_ai("image.png") # uses AI to create an object/objects in image.png
+
 
 EMBEDDING METRICS:
 
