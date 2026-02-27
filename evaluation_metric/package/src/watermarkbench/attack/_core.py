@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 import io
 import math
 import numpy as np
@@ -9,9 +9,17 @@ import subprocess
 import tempfile
 import shutil
 from pathlib import Path
+from ._weights import ensure_sam_checkpoint
 from torchvision.transforms import InterpolationMode
 from PIL import Image
 import torchvision.io as tvio
+
+import io
+from typing import Optional, Tuple, Any
+
+import numpy as np
+import torch
+from PIL import Image, ImageFilter
 
 try:
     import kornia
@@ -541,12 +549,404 @@ def median_filtering(x: torch.Tensor, k: int) -> torch.Tensor:
     return _apply_attack_preserve(x, _core)
 
 
+# ============================================================
+# 4) AI pipeline
+# ============================================================
+
+import requests
+import openai
+from io import BytesIO
+
+_AI_CACHE: dict[str, Any] = {}
+
+def _ensure_openai_key():
+    import os
+    if getattr(openai, "api_key", None):
+        return
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    if not openai.api_key:
+        raise RuntimeError(
+            "OpenAI API key not set. Set OPENAI_API_KEY or set openai.api_key "
+            "before calling replace_ai/create_ai."
+        )
+
+def _get_device(device: Optional[str] = None) -> str:
+    return device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+def _chw_u8_to_pil_rgb(x_chw_u8: torch.Tensor) -> Image.Image:
+    x = x_chw_u8.detach().cpu()
+    if x.dtype != torch.uint8:
+        x = x.to(torch.uint8)
+    if x.dim() != 3:
+        raise ValueError(f"Expected CHW tensor, got {tuple(x.shape)}")
+    if x.shape[0] == 1:
+        return Image.fromarray(x[0].numpy(), mode="L").convert("RGB")
+    return Image.fromarray(x.permute(1, 2, 0).numpy(), mode="RGB")
+
+def _pil_rgb_to_chw_u8(pil: Image.Image, like: torch.Tensor) -> torch.Tensor:
+    if like.shape[0] == 1:
+        arr = np.array(pil.convert("L"), dtype=np.uint8)
+        return torch.from_numpy(arr).unsqueeze(0)
+    arr = np.array(pil.convert("RGB"), dtype=np.uint8)
+    return torch.from_numpy(arr).permute(2, 0, 1).contiguous()
+
+def _get_yolo_and_sam(
+    *,
+    yolo_weights: str = "yolov10x.pt",
+    sam_checkpoint: str = "sam_vit_h_4b8939.pth",
+    sam_model_type: str = "vit_h",
+    device: Optional[str] = None,
+):
+    dev = _get_device(device)
+
+    sam_path = Path(sam_checkpoint)
+    if sam_path.exists():
+        ckpt_path = str(sam_path)
+    else:
+        ckpt_path = ensure_sam_checkpoint(sam_path.name)
+
+    key = f"yolo_sam::{yolo_weights}::{ckpt_path}::{sam_model_type}::{dev}"
+    if key in _AI_CACHE:
+        return _AI_CACHE[key]
+
+    from ultralytics import YOLO
+    from segment_anything import sam_model_registry, SamPredictor
+
+    yolo = YOLO(yolo_weights)
+
+    sam = sam_model_registry[sam_model_type](checkpoint=ckpt_path)
+    sam.to(device=dev)
+    predictor = SamPredictor(sam)
+
+    _AI_CACHE[key] = (yolo, predictor, dev)
+    return yolo, predictor, dev
+    
+def _get_blip(*, device: Optional[str] = None):
+    dev = _get_device(device)
+    key = f"blip::{dev}"
+    if key in _AI_CACHE:
+        return _AI_CACHE[key]
+    from transformers import BlipProcessor, BlipForConditionalGeneration
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(dev)
+    _AI_CACHE[key] = (processor, model, dev)
+    return processor, model, dev
+
+def _get_instruct_pix2pix(*, model_name="paint-by-inpaint/general-finetuned-mb", device: Optional[str] = None):
+    dev = _get_device(device)
+    key = f"ip2p::{model_name}::{dev}"
+    if key in _AI_CACHE:
+        return _AI_CACHE[key]
+    from diffusers import StableDiffusionInstructPix2PixPipeline, EulerAncestralDiscreteScheduler
+    dtype = torch.float16 if dev.startswith("cuda") else torch.float32
+    pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_name, torch_dtype=dtype).to(dev)
+    pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+    _AI_CACHE[key] = (pipe, dev)
+    return pipe, dev
+
+def _yolov10_detection(model, image_batch: list[np.ndarray]):
+    results = model(image_batch)
+    batch_boxes, batch_labels = [], []
+    for result in results:
+        boxes = result.boxes.xyxy.cpu().numpy()
+        labels = [result.names[int(cls.cpu().numpy())] for cls in result.boxes.cls]
+        batch_boxes.append(boxes)
+        batch_labels.append(labels)
+    return batch_boxes, batch_labels
+
+def _make_primary_mask_yolo_sam(
+    image_rgb: Image.Image,
+    *,
+    threshold_area: int = 500,
+    yolo_weights: str = "yolov10x.pt",
+    sam_checkpoint: str = "sam_vit_h_4b8939.pth",
+    sam_model_type: str = "vit_h",
+    device: Optional[str] = None,
+) -> Image.Image:
+    yolo, predictor, _ = _get_yolo_and_sam(
+        yolo_weights=yolo_weights,
+        sam_checkpoint=sam_checkpoint,
+        sam_model_type=sam_model_type,
+        device=device,
+    )
+
+    img_np = np.array(image_rgb.convert("RGB"))
+    boxes_batch, labels_batch = _yolov10_detection(yolo, [img_np])
+    boxes = boxes_batch[0]
+    labels = labels_batch[0]
+
+    predictor.set_image(img_np)
+
+    all_masks_with_area = []
+    for box, label in zip(boxes, labels):
+        input_box = np.array(box)
+        masks, _, _ = predictor.predict(
+            point_coords=None,
+            point_labels=None,
+            box=input_box[None, :],
+            multimask_output=True,
+        )
+        for mask in masks:
+            area = int(mask.sum())
+            if area > threshold_area:
+                all_masks_with_area.append((mask, area))
+
+    all_masks_with_area.sort(key=lambda x: x[1], reverse=True)
+
+    if len(all_masks_with_area) < 1:
+        if len(boxes) == 0:
+            return Image.fromarray(np.zeros((img_np.shape[0], img_np.shape[1]), dtype=np.uint8), mode="L")
+        x0, y0, x1, y1 = map(int, boxes[0])
+        rect = np.zeros((img_np.shape[0], img_np.shape[1]), dtype=np.uint8)
+        rect[y0:y1, x0:x1] = 255
+        return Image.fromarray(rect, mode="L")
+
+    mask_bool = all_masks_with_area[0][0]
+    return Image.fromarray((mask_bool.astype(np.uint8) * 255), mode="L")
+
+def _masked_crop(image_rgb: Image.Image, mask_l: Image.Image) -> Image.Image:
+    img = np.array(image_rgb.convert("RGB"))
+    m = (np.array(mask_l.convert("L")) > 0)
+    out = img.copy()
+    out[~m] = 0
+    return Image.fromarray(out, mode="RGB")
+
+def _blip_caption(pil_rgb: Image.Image, *, device: Optional[str] = None) -> str:
+    processor, model, dev = _get_blip(device=device)
+    inputs = processor(images=pil_rgb, return_tensors="pt").to(dev, torch.float32)
+    out = model.generate(**inputs)
+    return processor.decode(out[0], skip_special_tokens=True)
+
+def _openai_prompt_for_replace(image_rgb: Image.Image, crop_rgb: Image.Image) -> str:
+    _ensure_openai_key()
+    image_description = _blip_caption(image_rgb)
+    masked_object_description = _blip_caption(crop_rgb)
+    user_message = (
+        f"Generate a prompt to replace the {masked_object_description} in an image similar to "
+        f"'{image_description}', focusing on the areas defined by the provided masks. "
+        f"Ensure the objects fit seamlessly into the scene."
+    )
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are skilled in creating prompts for DALL-E 2 image editing."},
+            {"role": "user", "content": user_message},
+        ],
+    )
+    return completion.choices[0].message.content.strip()
+
+def _openai_prompt_for_create(image_rgb_512: Image.Image) -> str:
+    _ensure_openai_key()
+    image_description = _blip_caption(image_rgb_512)
+    chatgpt_prompt = (
+        f"Given the image description: '{image_description}', suggest a specific object "
+        f"that would enhance the image. The object should be easily recognizable and should "
+        f"not introduce complexity to the image."
+    )
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an expert in suggesting simple, specific objects to enhance images based on descriptions."},
+            {"role": "user", "content": chatgpt_prompt},
+        ],
+        max_tokens=50,
+        temperature=0.7,
+    )
+    suggestion = response.choices[0].message.content.strip()
+    return f"Add '{suggestion}' to the image."
+
+def _make_dalle_edit_mask(image_rgb: Image.Image, mask_l: Image.Image) -> Image.Image:
+
+    img = np.array(image_rgb.convert("RGB"), dtype=np.uint8)
+    m = (np.array(mask_l.convert("L"), dtype=np.uint8) > 0)
+
+    blended = img.copy()
+    blended[m] = 0  
+
+    rgba = np.dstack([blended, np.full(blended.shape[:2], 255, dtype=np.uint8)])  
+    black = (rgba[..., 0] == 0) & (rgba[..., 1] == 0) & (rgba[..., 2] == 0)
+    rgba[black, 3] = 0  
+
+    return Image.fromarray(rgba, mode="RGBA")
+
+def _pil_to_png_bytes(pil_img: Image.Image) -> BytesIO:
+    buf = BytesIO()
+    pil_img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+# -------------------- Attacks --------------------
+
+def replace_ai(
+    x_chw_u8: torch.Tensor,
+    strength: Any = None,
+    *,
+    threshold_area: int = 5000,
+    feather_radius: int = 0,
+    openai_size: str = "1024x1024",
+    openai_image_model: str = "dall-e-2",
+    **kwargs,
+) -> torch.Tensor:
+    import os
+    import tempfile
+    import requests
+    from io import BytesIO
+
+    _ensure_openai_key()
+
+    image = _chw_u8_to_pil_rgb(x_chw_u8)
+    mask_l = _make_primary_mask_yolo_sam(image, threshold_area=threshold_area)
+
+    if feather_radius and feather_radius > 0:
+        mask_l = mask_l.filter(ImageFilter.GaussianBlur(radius=float(feather_radius)))
+
+    crop = _masked_crop(image, mask_l)
+    prompt = _openai_prompt_for_replace(image, crop)
+    mask_rgba = _make_dalle_edit_mask(image, mask_l)
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set")
+
+    with tempfile.TemporaryDirectory() as td:
+        img_path = str(Path(td) / "image.png")
+        msk_path = str(Path(td) / "mask.png")
+
+        image.convert("RGB").save(img_path, format="PNG")
+        mask_rgba.save(msk_path, format="PNG")
+
+        url = "https://api.openai.com/v1/images/edits"
+        headers = {"Authorization": f"Bearer {api_key}"}
+
+        # Force correct part mimetypes here:
+        with open(img_path, "rb") as img_fp, open(msk_path, "rb") as msk_fp:
+            files = {
+                "image": ("image.png", img_fp, "image/png"),
+                "mask": ("mask.png", msk_fp, "image/png"),
+            }
+            data = {
+                "prompt": prompt,
+                "n": 1,
+                "size": openai_size,
+                "model": openai_image_model,
+            }
+            resp = requests.post(url, headers=headers, files=files, data=data, timeout=120)
+            if resp.status_code >= 400:
+                raise RuntimeError(f"OpenAI images/edits error {resp.status_code}: {resp.text}")
+
+            payload = resp.json()
+
+    edit_url = payload["data"][0]["url"]
+    r = requests.get(edit_url)
+    r.raise_for_status()
+
+    out = Image.open(BytesIO(r.content)).convert("RGB").resize(image.size, Image.LANCZOS)
+    return _pil_rgb_to_chw_u8(out, x_chw_u8)
+
+
+def remove_ai(
+    x_chw_u8: torch.Tensor,
+    strength: Any = None,
+    *,
+    threshold_area: int = 5000,        
+    feather_radius: int = 2,
+    median_kernel: int = 1,
+    upscale_factor: float = 1.0,       
+    **kwargs,
+) -> torch.Tensor:
+
+    image = _chw_u8_to_pil_rgb(x_chw_u8)
+
+    mask_l = _make_primary_mask_yolo_sam(image, threshold_area=threshold_area)
+
+    if feather_radius and feather_radius > 0:
+        mask_l = mask_l.filter(ImageFilter.GaussianBlur(radius=float(feather_radius)))
+
+    if upscale_factor and float(upscale_factor) != 1.0:
+        s = float(upscale_factor)
+        new_w = max(1, int(round(image.size[0] * s)))
+        new_h = max(1, int(round(image.size[1] * s)))
+        image_in = image.resize((new_w, new_h), Image.LANCZOS)
+        mask_in = mask_l.resize((new_w, new_h), Image.LANCZOS)
+    else:
+        image_in = image
+        mask_in = mask_l
+
+    from simple_lama_inpainting import SimpleLama
+    import cv2
+
+    lama = SimpleLama()
+    result = lama(image_in, mask_in)  
+
+    result_bgr = cv2.cvtColor(np.array(result), cv2.COLOR_RGB2BGR)
+
+    k = int(median_kernel) if median_kernel is not None else 0
+    if k > 1:
+        if k % 2 == 0:
+            k += 1
+        result_bgr = cv2.medianBlur(result_bgr, k)
+
+    result = Image.fromarray(cv2.cvtColor(result_bgr, cv2.COLOR_BGR2RGB))
+
+    if result.size != image.size:
+        result = result.resize(image.size, Image.LANCZOS)
+
+    return _pil_rgb_to_chw_u8(result, x_chw_u8)
+
+
+def create_ai(
+    x_chw_u8: torch.Tensor,
+    strength: Any = None,
+    *,
+    threshold_area: int = 5000,  
+    model_name: str = "paint-by-inpaint/general-finetuned-mb",
+    diffusion_steps: int = 50,
+    guidance_scale: float = 7.0,
+    image_guidance_scale: float = 1.5,
+    **kwargs,
+) -> torch.Tensor:
+
+    _ensure_openai_key() 
+
+    image = _chw_u8_to_pil_rgb(x_chw_u8)
+    mask_l = _make_primary_mask_yolo_sam(image, threshold_area=threshold_area).convert("L")
+
+    image_512 = image.resize((512, 512))
+    mask_512 = mask_l.resize((512, 512))
+
+    prompt = _openai_prompt_for_create(image_512)
+
+    pipe, _ = _get_instruct_pix2pix(model_name=model_name)
+    out_images = pipe(
+        prompt,
+        image=image_512,
+        mask_image=mask_512,
+        guidance_scale=float(guidance_scale),
+        image_guidance_scale=float(image_guidance_scale),
+        num_inference_steps=int(diffusion_steps),
+        num_images_per_prompt=1,
+    ).images
+
+    out = out_images[0].resize(image.size, Image.LANCZOS)
+    return _pil_rgb_to_chw_u8(out, x_chw_u8)
+
 __all__ = [
     "rotate_tensor", "crop", "scaled", "flipping", "resized",
     "jpeg_compression", "jpeg2000_compression",
-    "jpegai_compression", "jpegxl_compression",
+    "jpegai_compression", "jpegxl_compression", "jpegxs_compression",
     "gaussian_noise", "speckle_noise",
     "blurring", "brightness", "sharpness", "median_filtering",
+    "remove_ai", "replace_ai", "create_ai"
 ]
+
+
+
+
+
+
+
+
+
+
 
 
