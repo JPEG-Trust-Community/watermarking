@@ -10,7 +10,7 @@ from PIL import Image
 
 PathLike = Union[str, Path]
 
-
+# Load image → return (CHW uint8 tensor, original PIL image, Path)
 def _load_image(path: PathLike) -> Tuple[torch.Tensor, Image.Image, Path]:
     p = Path(path)
     pil = Image.open(p)
@@ -28,7 +28,7 @@ def _load_image(path: PathLike) -> Tuple[torch.Tensor, Image.Image, Path]:
 
     return x, pil, p
 
-
+# Convert CHW tensor back to PIL image
 def _tensor_to_pil(x: torch.Tensor, mode_hint: str) -> Image.Image:
     if x.dim() != 3:
         raise ValueError(f"Expected CHW tensor, got shape={tuple(x.shape)}")
@@ -50,14 +50,14 @@ def _tensor_to_pil(x: torch.Tensor, mode_hint: str) -> Image.Image:
         arr = y.permute(1, 2, 0).numpy()
         return Image.fromarray(arr, mode="RGB")
 
-
+# Format parameter for safe filename usage
 def _format_param(param) -> str:
     if isinstance(param, float):
         s = f"{param:.6g}"
         return s.replace(".", "p")
     return str(param).replace(".", "p")
 
-
+# Build output file path: originalname_attack_strength.png for example
 def _output_path(
     input_path: Path,
     attack_name: str,
@@ -72,4 +72,5 @@ def _output_path(
     strength_s = _format_param(strength)
     out_name = f"{stem}_{attack_name}_{strength_s}{ext}"
     return out_dir / out_name
+
 
