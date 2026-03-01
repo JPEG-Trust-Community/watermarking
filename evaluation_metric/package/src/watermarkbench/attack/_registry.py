@@ -4,6 +4,7 @@ from typing import Callable, Dict
 
 from . import _core
 
+# All attacks and their corresponding functions from _core
 ATTACKS: Dict[str, Callable] = {
     "rotate": _core.rotate_tensor,
     "crop": _core.crop,
@@ -24,5 +25,6 @@ ATTACKS: Dict[str, Callable] = {
     "replace_ai": _core.replace_ai,
     "create_ai": _core.create_ai,
 }
+
 
 
