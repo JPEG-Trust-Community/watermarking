@@ -4,19 +4,19 @@ import os
 from pathlib import Path
 import requests
 
-
+# Available SAM checkpoint URLs
 SAM_URLS = {
     "sam_vit_h_4b8939.pth": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
     "sam_vit_l_0b3195.pth": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth",
     "sam_vit_b_01ec64.pth": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
 }
 
-
+# Return default cache directory for storing weights
 def _default_weights_dir() -> Path:
     base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return base / "watermarkbench" / "weights"
 
-
+# Ensure requested SAM checkpoint exists locally (download if missing)
 def ensure_sam_checkpoint(
     filename: str = "sam_vit_h_4b8939.pth",
     *,
@@ -28,13 +28,15 @@ def ensure_sam_checkpoint(
             f"Unknown SAM checkpoint '{filename}'. Known: {list(SAM_URLS)}"
         )
 
+    # Determine weights directory
     wdir = Path(weights_dir) if weights_dir is not None else _default_weights_dir()
     wdir.mkdir(parents=True, exist_ok=True)
     out = wdir / filename
 
     if out.exists() and out.stat().st_size > 0:
         return str(out)
-
+        
+    # Download checkpoint
     url = SAM_URLS[filename]
     tmp = out.with_suffix(out.suffix + ".tmp")
 
