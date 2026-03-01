@@ -22,6 +22,7 @@ class _AttackNamespace:
 
         core_fn = ATTACKS[name]
 
+        # Standard attack call (requires strength)
         def _call(input_image: PathLike, strength, output_dir: Optional[PathLike] = None) -> str:
             x_chw_u8, pil, p = _load_image(input_image)
             y = core_fn(x_chw_u8, strength)
@@ -32,6 +33,7 @@ class _AttackNamespace:
 
         AI_ATTACKS = {"remove_ai", "replace_ai", "create_ai"}
 
+        # Special handling for AI-based attacks (no strength argument)
         if name in AI_ATTACKS:
             def _call_ai(input_image: PathLike, output_dir: Optional[PathLike] = None, **kwargs) -> str:
                 x_chw_u8, pil, p = _load_image(input_image)
@@ -50,4 +52,5 @@ class _AttackNamespace:
 attack = _AttackNamespace()
 
 __all__ = ["attack"]
+
 
