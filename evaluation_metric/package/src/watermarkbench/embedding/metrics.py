@@ -12,6 +12,7 @@ ArrayLike = Union[np.ndarray, PathLike]
 
 
 def _as_rgb(img: ArrayLike) -> np.ndarray:
+    # Load/convert input into an RGB numpy array (H, W, 3)
     if isinstance(img, (str, bytes)) or hasattr(img, "__fspath__"):
         return imread_rgb(img)
     arr = np.asarray(img)
@@ -23,6 +24,7 @@ def _as_rgb(img: ArrayLike) -> np.ndarray:
 
 
 def _to_gray01(img: np.ndarray) -> np.ndarray:
+    #Convert image to grayscale, handling uint8 and float inputs
     arr = np.asarray(img)
     if arr.dtype == np.uint8:
         arrf = arr.astype(np.float64) / 255.0
@@ -43,6 +45,7 @@ def _to_gray01(img: np.ndarray) -> np.ndarray:
 
 
 def _match_shapes_center_crop(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # Center-crop two RGB images to the same (minimum) height/width
     if a.shape == b.shape:
         return a, b
     h = min(a.shape[0], b.shape[0])
@@ -57,6 +60,7 @@ def _match_shapes_center_crop(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray,
 
 
 def MSE(ref: ArrayLike, tst: ArrayLike) -> float:
+    # Mean Squared Error between two images (computed on grayscale images)
     a = _to_gray01(_as_rgb(ref))
     b = _to_gray01(_as_rgb(tst))
     if a.shape != b.shape:
@@ -67,6 +71,7 @@ def MSE(ref: ArrayLike, tst: ArrayLike) -> float:
 
 
 def PSNR(ref: ArrayLike, tst: ArrayLike, max_val: float = 1.0) -> float:
+    # Peak Signal-to-Noise Ratio (dB) from MSE, assuming max pixel value max_val
     m = MSE(ref, tst)
     if m == 0:
         return float("inf")
@@ -74,6 +79,7 @@ def PSNR(ref: ArrayLike, tst: ArrayLike, max_val: float = 1.0) -> float:
 
 
 def WPSNR(ref: ArrayLike, tst: ArrayLike, eps: float = 1e-6) -> float:
+    # Weighted PSNR: MSE weighted by a simple visibility-based weight map
     ref_rgb = _as_rgb(ref)
     tst_rgb = _as_rgb(tst)
     if ref_rgb.shape != tst_rgb.shape:
@@ -92,6 +98,7 @@ def WPSNR(ref: ArrayLike, tst: ArrayLike, eps: float = 1e-6) -> float:
 
 
 def SSIM(ref: ArrayLike, tst: ArrayLike) -> float:
+    # Structural Similarity Index (SSIM) on grayscale
     ref_rgb = _as_rgb(ref)
     tst_rgb = _as_rgb(tst)
     if ref_rgb.shape != tst_rgb.shape:
@@ -101,7 +108,7 @@ def SSIM(ref: ArrayLike, tst: ArrayLike) -> float:
     b = _to_gray01(tst_rgb)
     return float(ssim_fn(a, b, data_range=1.0))
 
-
+# need to update and change to mays version
 def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
     ref_rgb = _as_rgb(ref)
     tst_rgb = _as_rgb(tst)
@@ -124,3 +131,4 @@ def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
 
     pass_map = (err < jnd)
     return float(np.mean(pass_map))
+
