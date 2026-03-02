@@ -6,6 +6,7 @@ import numpy as np
 Bits = Union[str, Sequence[int], np.ndarray]
 
 def _to_bits(x: Bits) -> np.ndarray:
+    # Convert bit representations into a 0/1 uint8 numpy array
     if isinstance(x, str):
         arr = np.fromiter((1 if c == "1" else 0 for c in x.strip()), dtype=np.uint8)
         return arr
@@ -17,9 +18,11 @@ def _to_bits(x: Bits) -> np.ndarray:
     raise ValueError(f"Unsupported bits type: {type(x)} / dtype={arr.dtype}")
 
 def BER(groundtruth: Bits, extracted: Bits) -> float:
+    # Bit Error Rate: fraction of bits that differ between groundtruth and extracted
     gt = _to_bits(groundtruth)
     ex = _to_bits(extracted)
     if gt.shape != ex.shape:
         raise ValueError(f"Shape mismatch: groundtruth {gt.shape} vs extracted {ex.shape}")
     return float(np.mean(gt != ex))
+
 
