@@ -561,9 +561,8 @@ def jpegxs_compression(
 
     return _apply_attack_preserve(x, _core)
 
-
 def gaussian_noise(x: torch.Tensor, var: float = 0.01) -> torch.Tensor:
-
+    # Add zero-mean Gaussian noise (variance in 0–1 scale)
     def _core(z: torch.Tensor):
         z = z.clamp(-1.0, 1.0)
         v = float(var)
@@ -588,6 +587,7 @@ def gaussian_noise(x: torch.Tensor, var: float = 0.01) -> torch.Tensor:
 
 
 def speckle_noise(x: torch.Tensor, sigma: float) -> torch.Tensor:
+    # Add multiplicative (speckle) noise
     def _core(z: torch.Tensor):
         z = z.clamp(-1.0, 1.0)
         noise = torch.randn_like(z) * float(sigma)
@@ -596,6 +596,7 @@ def speckle_noise(x: torch.Tensor, sigma: float) -> torch.Tensor:
 
 
 def blurring(x: torch.Tensor, k: int) -> torch.Tensor:
+    # Apply Gaussian blur with kernel size k
     def _core(z: torch.Tensor):
         kk = int(k)
         if kk % 2 == 0:
@@ -614,6 +615,7 @@ def blurring(x: torch.Tensor, k: int) -> torch.Tensor:
 
 
 def brightness(x: torch.Tensor, factor: float) -> torch.Tensor:
+    # Scale image brightness by multiplying values in [0,1] space, then convert back
     def _core(z: torch.Tensor) -> torch.Tensor:
         z = z.clamp(-1.0, 1.0)
         z01 = (z + 1.0) / 2.0
@@ -623,6 +625,7 @@ def brightness(x: torch.Tensor, factor: float) -> torch.Tensor:
 
 
 def sharpness(x: torch.Tensor, amount: float = 1.0) -> torch.Tensor:
+    # Apply simple unsharp masking: add back (original - blurred) scaled by amount
     def _core(z: torch.Tensor) -> torch.Tensor:
         z = z.clamp(-1.0, 1.0)
         blur = F.avg_pool2d(z, kernel_size=3, stride=1, padding=1)
@@ -632,6 +635,7 @@ def sharpness(x: torch.Tensor, amount: float = 1.0) -> torch.Tensor:
 
 
 def median_filtering(x: torch.Tensor, k: int) -> torch.Tensor:
+    # Apply median filtering with kernel size k
     def _core(z: torch.Tensor):
         kk = int(k)
         if kk % 2 == 0:
@@ -665,6 +669,7 @@ from io import BytesIO
 _AI_CACHE: dict[str, Any] = {}
 
 def _ensure_openai_key():
+    # Ensure OpenAI API key is available (from openai.api_key or OPENAI_API_KEY env var)
     import os
     if getattr(openai, "api_key", None):
         return
@@ -679,6 +684,7 @@ def _get_device(device: Optional[str] = None) -> str:
     return device or ("cuda" if torch.cuda.is_available() else "cpu")
 
 def _chw_u8_to_pil_rgb(x_chw_u8: torch.Tensor) -> Image.Image:
+    # Convert a CHW uint8 tensor (1 or 3 channels) into a PIL RGB image
     x = x_chw_u8.detach().cpu()
     if x.dtype != torch.uint8:
         x = x.to(torch.uint8)
@@ -689,6 +695,7 @@ def _chw_u8_to_pil_rgb(x_chw_u8: torch.Tensor) -> Image.Image:
     return Image.fromarray(x.permute(1, 2, 0).numpy(), mode="RGB")
 
 def _pil_rgb_to_chw_u8(pil: Image.Image, like: torch.Tensor) -> torch.Tensor:
+    # Convert a PIL image back to CHW uint8
     if like.shape[0] == 1:
         arr = np.array(pil.convert("L"), dtype=np.uint8)
         return torch.from_numpy(arr).unsqueeze(0)
@@ -702,6 +709,7 @@ def _get_yolo_and_sam(
     sam_model_type: str = "vit_h",
     device: Optional[str] = None,
 ):
+    # Load and cache YOLO detector + SAM segmenter for a given device and checkpoint config
     dev = _get_device(device)
 
     sam_path = Path(sam_checkpoint)
@@ -727,6 +735,7 @@ def _get_yolo_and_sam(
     return yolo, predictor, dev
     
 def _get_blip(*, device: Optional[str] = None):
+    # Load and cache BLIP image captioning model + processor
     dev = _get_device(device)
     key = f"blip::{dev}"
     if key in _AI_CACHE:
@@ -738,6 +747,7 @@ def _get_blip(*, device: Optional[str] = None):
     return processor, model, dev
 
 def _get_instruct_pix2pix(*, model_name="paint-by-inpaint/general-finetuned-mb", device: Optional[str] = None):
+    # Load and cache an InstructPix2Pix diffusion pipeline for masked editing
     dev = _get_device(device)
     key = f"ip2p::{model_name}::{dev}"
     if key in _AI_CACHE:
@@ -750,6 +760,7 @@ def _get_instruct_pix2pix(*, model_name="paint-by-inpaint/general-finetuned-mb",
     return pipe, dev
 
 def _yolov10_detection(model, image_batch: list[np.ndarray]):
+    # Run YOLOv10 on numpy RGB images and return boxes + string labels per image
     results = model(image_batch)
     batch_boxes, batch_labels = [], []
     for result in results:
@@ -768,6 +779,7 @@ def _make_primary_mask_yolo_sam(
     sam_model_type: str = "vit_h",
     device: Optional[str] = None,
 ) -> Image.Image:
+    # Detect objects with YOLO and segment with SAM - return the largest mask above threshold_area
     yolo, predictor, _ = _get_yolo_and_sam(
         yolo_weights=yolo_weights,
         sam_checkpoint=sam_checkpoint,
@@ -810,6 +822,7 @@ def _make_primary_mask_yolo_sam(
     return Image.fromarray((mask_bool.astype(np.uint8) * 255), mode="L")
 
 def _masked_crop(image_rgb: Image.Image, mask_l: Image.Image) -> Image.Image:
+    # Zero-out everything outside the mask (keeps only masked region)
     img = np.array(image_rgb.convert("RGB"))
     m = (np.array(mask_l.convert("L")) > 0)
     out = img.copy()
@@ -817,12 +830,14 @@ def _masked_crop(image_rgb: Image.Image, mask_l: Image.Image) -> Image.Image:
     return Image.fromarray(out, mode="RGB")
 
 def _blip_caption(pil_rgb: Image.Image, *, device: Optional[str] = None) -> str:
+    # Generate a caption for an image using BLIP
     processor, model, dev = _get_blip(device=device)
     inputs = processor(images=pil_rgb, return_tensors="pt").to(dev, torch.float32)
     out = model.generate(**inputs)
     return processor.decode(out[0], skip_special_tokens=True)
 
 def _openai_prompt_for_replace(image_rgb: Image.Image, crop_rgb: Image.Image) -> str:
+    # Use BLIP captions + OpenAI chat model to produce a DALL·E edit prompt for replacement
     _ensure_openai_key()
     image_description = _blip_caption(image_rgb)
     masked_object_description = _blip_caption(crop_rgb)
@@ -841,6 +856,7 @@ def _openai_prompt_for_replace(image_rgb: Image.Image, crop_rgb: Image.Image) ->
     return completion.choices[0].message.content.strip()
 
 def _openai_prompt_for_create(image_rgb_512: Image.Image) -> str:
+    # Use BLIP + OpenAI chat model to suggest a simple object to add, returning an edit instruction
     _ensure_openai_key()
     image_description = _blip_caption(image_rgb_512)
     chatgpt_prompt = (
@@ -861,7 +877,7 @@ def _openai_prompt_for_create(image_rgb_512: Image.Image) -> str:
     return f"Add '{suggestion}' to the image."
 
 def _make_dalle_edit_mask(image_rgb: Image.Image, mask_l: Image.Image) -> Image.Image:
-
+    # Create an RGBA mask image suitable for DALL·E edits (transparent where edits should happen)
     img = np.array(image_rgb.convert("RGB"), dtype=np.uint8)
     m = (np.array(mask_l.convert("L"), dtype=np.uint8) > 0)
 
@@ -875,6 +891,7 @@ def _make_dalle_edit_mask(image_rgb: Image.Image, mask_l: Image.Image) -> Image.
     return Image.fromarray(rgba, mode="RGBA")
 
 def _pil_to_png_bytes(pil_img: Image.Image) -> BytesIO:
+    # Serialize a PIL image to PNG bytes in-memory.
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
     buf.seek(0)
@@ -892,11 +909,12 @@ def replace_ai(
     openai_image_model: str = "dall-e-2",
     **kwargs,
 ) -> torch.Tensor:
+    # Detect a main object, build a prompt, and call OpenAI Images Edits to replace that region
     import os
     import tempfile
     import requests
     from io import BytesIO
-
+    
     _ensure_openai_key()
 
     image = _chw_u8_to_pil_rgb(x_chw_u8)
@@ -959,7 +977,7 @@ def remove_ai(
     upscale_factor: float = 1.0,       
     **kwargs,
 ) -> torch.Tensor:
-
+    # Detect a main object and remove it via inpainting (SimpleLama)
     image = _chw_u8_to_pil_rgb(x_chw_u8)
 
     mask_l = _make_primary_mask_yolo_sam(image, threshold_area=threshold_area)
@@ -1010,7 +1028,8 @@ def create_ai(
     image_guidance_scale: float = 1.5,
     **kwargs,
 ) -> torch.Tensor:
-
+    
+    # Detect a main region, create a prompt, then use InstructPix2Pix to add an object into the image
     _ensure_openai_key() 
 
     image = _chw_u8_to_pil_rgb(x_chw_u8)
@@ -1043,6 +1062,7 @@ __all__ = [
     "blurring", "brightness", "sharpness", "median_filtering",
     "remove_ai", "replace_ai", "create_ai"
 ]
+
 
 
 
