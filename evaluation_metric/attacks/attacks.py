@@ -39,6 +39,7 @@ except Exception:
 # 1) Shape + Range Adapters
 # ============================================================
 def _detect_layout(x: torch.Tensor) -> str:
+    # Infer tensor layout string (HW, CHW, HWC, BCHW, BHWC) from its shape
     if x.dim() == 2:
         return "HW"
     if x.dim() == 3:
@@ -49,7 +50,7 @@ def _detect_layout(x: torch.Tensor) -> str:
 
 
 def _to_bchw(x: torch.Tensor):
-
+    # Convert an image tensor of various layouts into BCHW and return metadata to restore later
     layout = _detect_layout(x)
     meta = {
         "layout": layout,
@@ -74,6 +75,7 @@ def _to_bchw(x: torch.Tensor):
 
 
 def _from_bchw(x_bchw: torch.Tensor, meta: dict) -> torch.Tensor:
+    # Restore a BCHW tensor back to the original layout recorded in meta
     layout = meta["layout"]
 
     if layout == "HW":
@@ -91,7 +93,7 @@ def _from_bchw(x_bchw: torch.Tensor, meta: dict) -> torch.Tensor:
 
 
 def _detect_range_mode(x: torch.Tensor) -> str:
-
+    # Detect value/range convention (uint8_255, float_0_1, float_0_255, float_-1_1)
     if not torch.is_floating_point(x):
         return "uint8_255"
 
@@ -109,6 +111,7 @@ def _detect_range_mode(x: torch.Tensor) -> str:
 
 
 def _to_minus1_1(x: torch.Tensor, mode: str) -> torch.Tensor:
+    # Convert input tensor from detected mode into float range [-1, 1]
     if mode == "uint8_255":
         x01 = (x.to(torch.float32) / 255.0).clamp(0.0, 1.0)
         return (x01 * 2.0 - 1.0).clamp(-1.0, 1.0)
@@ -125,6 +128,7 @@ def _to_minus1_1(x: torch.Tensor, mode: str) -> torch.Tensor:
 
 
 def _from_minus1_1(x_m11: torch.Tensor, mode: str, orig_dtype: torch.dtype) -> torch.Tensor:
+    # Convert a float [-1, 1] tensor back into the original numeric mode/dtype
     x_m11 = x_m11.clamp(-1.0, 1.0)
 
     if mode == "uint8_255":
@@ -145,7 +149,7 @@ def _from_minus1_1(x_m11: torch.Tensor, mode: str, orig_dtype: torch.dtype) -> t
 
 
 def _apply_attack_preserve(x: torch.Tensor, attack_fn, *args, **kwargs) -> torch.Tensor:
-
+    # Run an attack in a normalized BCHW, [-1,1] space and then restore original layout/range
     x_bchw, meta = _to_bchw(x)
     range_mode = _detect_range_mode(x_bchw)
 
@@ -161,6 +165,7 @@ def _apply_attack_preserve(x: torch.Tensor, attack_fn, *args, **kwargs) -> torch
 # 2) Geometric Attacks
 # ============================================================
 def rotate_tensor(x: torch.Tensor, angle: float) -> torch.Tensor:
+    # Rotate an image tensor by angle degrees
     def _core(z: torch.Tensor):
         return TF.rotate(
             z,
@@ -173,7 +178,7 @@ def rotate_tensor(x: torch.Tensor, angle: float) -> torch.Tensor:
 
 
 def crop(x: torch.Tensor, pct: float) -> torch.Tensor:
-
+    # Center-crop by a percentage of the image size, then resize back to original resolution
     def _core(z: torch.Tensor):
         _, _, H, W = z.shape
 
@@ -202,7 +207,7 @@ def crop(x: torch.Tensor, pct: float) -> torch.Tensor:
 
 
 def scaled(x: torch.Tensor, scale: float) -> torch.Tensor:
-
+    # Resize image by a scale factor (or percentage if >3), then resize back to original size
     def _core(z: torch.Tensor):
         _, _, H, W = z.shape
         s = float(scale)
@@ -224,6 +229,7 @@ def scaled(x: torch.Tensor, scale: float) -> torch.Tensor:
 
 
 def flipping(x: torch.Tensor, mode: str) -> torch.Tensor:
+    # Flip the image horizontally (H), vertically (V), both (B)
     def _core(z: torch.Tensor):
         m = str(mode).upper()
         if m == "H":
@@ -237,6 +243,7 @@ def flipping(x: torch.Tensor, mode: str) -> torch.Tensor:
 
 
 def resized(x: torch.Tensor, pct: int) -> torch.Tensor:
+    # Downsample by a percentage amount, then upsample back to original size
     def _core(z: torch.Tensor):
         _, _, H, W = z.shape
         level_ratio = int(pct) / 100.0
@@ -256,6 +263,7 @@ def resized(x: torch.Tensor, pct: int) -> torch.Tensor:
 # 3) Signal Processing Attacks
 # ============================================================
 def jpeg_compression(x: torch.Tensor, quality: int) -> torch.Tensor:
+    # Apply JPEG encode/decode at a given quality using torchvision's JPEG routines.
     def _core(z: torch.Tensor):
         device = z.device
         z_cpu = z.detach().cpu().clamp(-1.0, 1.0)
@@ -287,7 +295,7 @@ def jpeg2000_compression(
     irreversible=True,
     ext="jp2",
 ) -> torch.Tensor:
-
+    # Apply JPEG2000 encode/decode using Pillow (quality controlled via quality_layers)
     def _core(z: torch.Tensor):
         device = z.device
         z_cpu = z.detach().cpu().clamp(-1.0, 1.0)
@@ -361,14 +369,14 @@ def _get_cheng2020_anchor(device: torch.device, quality: int):
     return model
 
 def _pad_to_multiple_of_64(x01_bchw: torch.Tensor) -> tuple[torch.Tensor, int, int]:
-
     _, _, h, w = x01_bchw.shape
     pad_h = (64 - (h % 64)) % 64
     pad_w = (64 - (w % 64)) % 64
     x_pad = F.pad(x01_bchw, (0, pad_w, 0, pad_h), mode="constant", value=0.0)
     return x_pad, h, w
+    
 def jpegai_compression(x: torch.Tensor, quality: int = 4) -> torch.Tensor:
-
+    # Apply compression via CompressAI (cheng2020_anchor) and reconstruct the image.
     def _core(z_m11: torch.Tensor):
         device = z_m11.device
 
@@ -405,7 +413,7 @@ def jpegai_compression(x: torch.Tensor, quality: int = 4) -> torch.Tensor:
     return _apply_attack_preserve(x, _core)
 
 def jpegxl_compression(x: torch.Tensor, quality: int = 50) -> torch.Tensor:
-
+    # Apply JPEG-XL encode/decode via Pillow (requires Pillow built with JXL support)
     def _core(z: torch.Tensor):
         device = z.device
         z_cpu = z.detach().cpu().clamp(-1.0, 1.0)
@@ -461,7 +469,7 @@ def jpegxs_compression(
     bitrate: str = "40M",
     pix_fmt: str = "yuv444p10le",
 ) -> torch.Tensor:
-
+    # Applies JPEG-XS encode/decode via ffmpeg and returns the reconstructed tensor
     def _core(z: torch.Tensor):
         if shutil.which("ffmpeg") is None:
             raise RuntimeError(
@@ -1035,6 +1043,7 @@ __all__ = [
     "blurring", "brightness", "sharpness", "median_filtering",
     "remove_ai", "replace_ai", "create_ai"
 ]
+
 
 
 
