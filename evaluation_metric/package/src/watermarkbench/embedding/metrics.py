@@ -110,25 +110,240 @@ def SSIM(ref: ArrayLike, tst: ArrayLike) -> float:
 
 # need to update and change to mays version
 def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
+    # Full JND map pipeline (bg luminance, contrast masking, content complexity, edge protection).
     ref_rgb = _as_rgb(ref)
     tst_rgb = _as_rgb(tst)
     if ref_rgb.shape != tst_rgb.shape:
         ref_rgb, tst_rgb = _match_shapes_center_crop(ref_rgb, tst_rgb)
 
-    a = _to_gray01(ref_rgb)
-    b = _to_gray01(tst_rgb)
+    a = (_to_gray01(ref_rgb) * 255.0).astype(np.float64, copy=False)
+    b = (_to_gray01(tst_rgb) * 255.0).astype(np.float64, copy=False)
+
+    eps = 1e-6
+
+    def _jnd_conv(inp, filt, padding="SAME", rotate=False):
+        inp = np.asarray(inp, dtype=np.float64)
+        ker = np.asarray(filt, dtype=np.float64)
+        if rotate:
+            ker = np.flipud(np.fliplr(ker))
+        if padding == "SAME":
+            res = cv2.filter2D(inp, ddepth=-1, kernel=ker, borderType=cv2.BORDER_REFLECT)
+        elif padding == "FULL":
+            fh, fw = ker.shape
+            inp_p = cv2.copyMakeBorder(inp, fh - 1, fh - 1, fw - 1, fw - 1, cv2.BORDER_REFLECT)
+            res = cv2.filter2D(inp_p, ddepth=-1, kernel=ker, borderType=cv2.BORDER_CONSTANT)
+        elif padding == "VALID":
+            fh, fw = ker.shape
+            tmp = cv2.filter2D(inp, ddepth=-1, kernel=ker, borderType=cv2.BORDER_CONSTANT)
+            top = fh // 2
+            left = fw // 2
+            res = tmp[top: tmp.shape[0] - (fh - 1 - top),
+                      left: tmp.shape[1] - (fw - 1 - left)]
+        else:
+            raise ValueError("Unsupported padding mode.")
+        return res.astype(np.float64, copy=False)
+
+    def _jnd_bg_adjust(bg_lum, min_lum):
+        adapt_bg = np.round(min_lum + bg_lum * (127 - min_lum) / 127 + eps)
+        bg_lum = np.where(bg_lum <= 127, adapt_bg, bg_lum)
+        return bg_lum
+
+    def _jnd_lum_table():
+        bg_jnd = {}
+        T0 = 17
+        gamma = 3 / 128
+        for k in range(256):
+            if k < 127:
+                bg_jnd[k] = T0 * (1 - np.sqrt(k / 127)) + 3
+            else:
+                bg_jnd[k] = gamma * (k - 127) + 3
+        return bg_jnd
+
+    def _jnd_func_bg_lum(img):
+        min_lum = 32
+        alpha = 0.7
+        B = np.array([[1, 1, 1, 1, 1],
+                      [1, 2, 2, 2, 1],
+                      [1, 2, 0, 2, 1],
+                      [1, 2, 2, 2, 1],
+                      [1, 1, 1, 1, 1]], dtype=np.float64)
+        bg_lum = np.floor(_jnd_conv(img, B) / 32)
+        bg_lum = _jnd_bg_adjust(bg_lum, min_lum)
+        table = _jnd_lum_table()
+        jnd_lum = np.vectorize(table.get)(bg_lum)
+        jnd_lum_adapt = alpha * jnd_lum
+        return jnd_lum_adapt
+
+    def _jnd_gkern(kernlen=21, nsig=3.0):
+        x = np.linspace(-nsig, nsig, kernlen)
+        kern1d = np.exp(-0.5 * x**2)
+        kern1d /= (kern1d.sum() + eps)
+        ker = np.outer(kern1d, kern1d)
+        ker /= (ker.sum() + eps)
+        return ker
+
+    def _jnd_edge_height(img):
+        G1 = np.array([[0, 0, 0, 0, 0],
+                       [1, 3, 8, 3, 1],
+                       [0, 0, 0, 0, 0],
+                       [-1, -3, -8, -3, -1],
+                       [0, 0, 0, 0, 0]], dtype=np.float64)
+        G2 = np.array([[0, 0, 1, 0, 0],
+                       [0, 8, 3, 0, 0],
+                       [1, 3, 0, -3, -1],
+                       [0, 0, -3, -8, 0],
+                       [0, 0, -1, 0, 0]], dtype=np.float64)
+        G3 = np.array([[0, 0, 1, 0, 0],
+                       [0, 0, 3, 8, 0],
+                       [-1, -3, 0, 3, 1],
+                       [0, -8, -3, 0, 0],
+                       [0, 0, -1, 0, 0]], dtype=np.float64)
+        G4 = np.array([[0, 1, 0, -1, 0],
+                       [0, 3, 0, -3, 0],
+                       [0, 8, 0, -8, 0],
+                       [0, 3, 0, -3, 0],
+                       [0, 1, 0, -1, 0]], dtype=np.float64)
+        grad = np.zeros((img.shape[0], img.shape[1], 4), dtype=np.float64)
+        grad[:, :, 0] = _jnd_conv(img, G1) / 16
+        grad[:, :, 1] = _jnd_conv(img, G2) / 16
+        grad[:, :, 2] = _jnd_conv(img, G3) / 16
+        grad[:, :, 3] = _jnd_conv(img, G4) / 16
+        max_g = np.max(np.abs(grad), axis=2)
+        core = max_g[2:-2, 2:-2]
+        edge_height = np.pad(core, ((2, 2), (2, 2)), mode="symmetric")
+        return edge_height
+
+    def _jnd_edge_protect(img):
+        try:
+            from skimage import feature as sk_feature, morphology as sk_morph
+        except Exception as e:
+            raise ImportError(
+                "scikit-image is required for JND pass-rate: pip install scikit-image"
+            ) from e
+
+        edge_h = 60.0
+        edge_height = _jnd_edge_height(img)
+        max_val = float(np.max(edge_height) + eps)
+        edge_threshold = min(edge_h / max_val, 0.8) if max_val > 0 else 0.8
+
+        edge_region = sk_feature.canny(
+            img,
+            sigma=np.sqrt(2.0),
+            low_threshold=0.4 * edge_threshold * 255.0,
+            high_threshold=edge_threshold * 255.0,
+        ).astype(np.float32)
+
+        kernel = sk_morph.disk(3)
+        img_edge = sk_morph.dilation(edge_region, kernel)
+        img_supedge = 1.0 - 1.0 * img_edge.astype(np.float64)
+
+        gaussian_kernel = _jnd_gkern(5, 0.8)
+        edge_protect = _jnd_conv(img_supedge, gaussian_kernel)
+        return edge_protect
+
+    def _jnd_luminance_contrast(img):
+        R = 2
+        ker = np.ones((2 * R + 1, 2 * R + 1), dtype=np.float64) / float((2 * R + 1) ** 2)
+        mean_mask = _jnd_conv(img, ker)
+        mean_img_sqr = mean_mask**2
+        img_sqr = img**2
+        mean_sqr_img = _jnd_conv(img_sqr, ker)
+        var_mask = mean_sqr_img - mean_img_sqr
+        var_mask[var_mask < 0] = 0
+        valid = np.zeros_like(img)
+        valid[R:-R, R:-R] = 1
+        var_mask *= valid
+        return np.sqrt(var_mask)
+
+    def _jnd_cmlx_num(img):
+        r = 1
+        nb = r * 8
+        otr = 6
+        kx = np.array([[-1, 0, 1],
+                       [-1, 0, 1],
+                       [-1, 0, 1]], dtype=np.float64) / 3.0
+        ky = kx.T
+
+        sps = np.zeros((nb, 2))
+        at = 2 * np.pi / nb
+        idx = np.arange(nb)
+        sps[:, 0] = -r * np.sin(idx * at)
+        sps[:, 1] = r * np.cos(idx * at)
+
+        imgd = np.pad(img, ((r, r), (r, r)), mode="symmetric")
+        h, w = imgd.shape
+
+        Gx = _jnd_conv(imgd, kx)
+        Gy = _jnd_conv(imgd, ky)
+
+        Cimg = np.sqrt(Gx**2 + Gy**2)
+        Cvimg = np.zeros_like(imgd)
+        Cvimg[Cimg >= 5] = 1
+
+        Oimg = np.round(np.arctan2(Gy, Gx) / np.pi * 180.0 + eps)
+        Oimg[Oimg > 90] -= 180
+        Oimg[Oimg < -90] += 180
+        Oimg += 90
+        Oimg[Cvimg == 0] = 180 + 2 * otr
+
+        Oimgc = Oimg[r:-r, r:-r]
+        Cvimgc = Cvimg[r:-r, r:-r]
+
+        Oimg_norm = np.round(Oimg / (2 * otr) + eps)
+        Oimgc_norm = np.round(Oimgc / (2 * otr) + eps)
+
+        onum = int(np.round(180 / (2 * otr)) + 1 + eps)
+        ssr_val = np.zeros((h - 2 * r, w - 2 * r, onum + 1))
+
+        for i in range(onum + 1):
+            ssr_val[:, :, i] += (Oimgc_norm == i)
+
+        for i in range(nb):
+            dx = int(np.round(r + sps[i, 0]) + eps)
+            dy = int(np.round(r + sps[i, 1]) + eps)
+            Oimgn = Oimg_norm[dx:h - 2 * r + dx, dy:w - 2 * r + dy]
+            for j in range(onum + 1):
+                ssr_val[:, :, j] += (Oimgn == j)
+
+        ssr_no_zero = (ssr_val != 0)
+        cmlx = np.sum(ssr_no_zero, axis=2)
+
+        cmlx[Cvimgc == 0] = 1
+        cmlx[:r, :] = 1
+        cmlx[-r:, :] = 1
+        cmlx[:, :r] = 1
+        cmlx[:, -r:] = 1
+        return cmlx
+
+    def _jnd_ori_cmlx(img):
+        cmlx_map = _jnd_cmlx_num(img)
+        r = 3
+        sig = 1.0
+        fker = _jnd_gkern(r, sig)
+        return _jnd_conv(cmlx_map, fker)
+
+    img = a 
+
+    jnd_LA = _jnd_func_bg_lum(img)
+
+    L_c = _jnd_luminance_contrast(img)
+    alpha = 0.115 * 16
+    beta = 26.0
+    jnd_LC = (alpha * np.power(L_c, 2.4)) / (np.power(L_c, 2.0) + beta**2)
+
+    P_c = _jnd_ori_cmlx(img)
+    a1, a2, a3 = 0.3, 2.7, 1.0
+    C_t = (a1 * np.power(P_c, a2)) / (np.power(P_c, 2.0) + a3**2)
+    jnd_PM = L_c * C_t
+
+    edge_prot = _jnd_edge_protect(img)
+    jnd_PM_p = jnd_PM * edge_prot
+
+    jnd_VM = np.where(jnd_LC > jnd_PM_p, jnd_LC, jnd_PM_p)
+    jnd_map = jnd_LA + jnd_VM - 0.3 * np.minimum(jnd_LA, jnd_VM)
+
     err = np.abs(a - b)
-
-    k = 7
-    mean = cv2.boxFilter(a.astype(np.float32), -1, (k, k), normalize=True).astype(np.float64)
-    sqmean = cv2.boxFilter((a * a).astype(np.float32), -1, (k, k), normalize=True).astype(np.float64)
-    std = np.sqrt(np.maximum(sqmean - mean ** 2, 0.0))
-
-    base = 2 / 255.0
-    alpha = 0.08
-    beta = 0.6
-    jnd = base + alpha * mean + beta * std
-
-    pass_map = (err < jnd)
+    pass_map = (err < jnd_map)
     return float(np.mean(pass_map))
+
 
