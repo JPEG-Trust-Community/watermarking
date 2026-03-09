@@ -60,18 +60,16 @@ def _match_shapes_center_crop(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray,
 
 
 def MSE(ref: ArrayLike, tst: ArrayLike) -> float:
-    # Mean Squared Error between two images (computed on grayscale images)
-    a = _to_gray01(_as_rgb(ref))
-    b = _to_gray01(_as_rgb(tst))
+    # Mean Squared Error between two RGB images
+    a = _as_rgb(ref).astype(np.float64)
+    b = _as_rgb(tst).astype(np.float64)
     if a.shape != b.shape:
-        ar = _as_rgb(ref); br = _as_rgb(tst)
-        ar, br = _match_shapes_center_crop(ar, br)
-        a = _to_gray01(ar); b = _to_gray01(br)
+        a, b = _match_shapes_center_crop(a, b)
     return float(np.mean((a - b) ** 2))
 
 
-def PSNR(ref: ArrayLike, tst: ArrayLike, max_val: float = 1.0) -> float:
-    # Peak Signal-to-Noise Ratio (dB) from MSE, assuming max pixel value max_val
+def PSNR(ref: ArrayLike, tst: ArrayLike, max_val: float = 255.0) -> float:
+    # Peak Signal-to-Noise Ratio (dB) from RGB MSE
     m = MSE(ref, tst)
     if m == 0:
         return float("inf")
@@ -79,22 +77,22 @@ def PSNR(ref: ArrayLike, tst: ArrayLike, max_val: float = 1.0) -> float:
 
 
 def WPSNR(ref: ArrayLike, tst: ArrayLike, eps: float = 1e-6) -> float:
-    # Weighted PSNR: MSE weighted by a simple visibility-based weight map
-    ref_rgb = _as_rgb(ref)
-    tst_rgb = _as_rgb(tst)
+    # Weighted PSNR: luminance-based weight map, RGB error
+    ref_rgb = _as_rgb(ref).astype(np.float64)
+    tst_rgb = _as_rgb(tst).astype(np.float64)
     if ref_rgb.shape != tst_rgb.shape:
         ref_rgb, tst_rgb = _match_shapes_center_crop(ref_rgb, tst_rgb)
 
-    ref8 = (np.clip(_to_gray01(ref_rgb) * 255, 0, 255)).astype(np.uint8)
+    ref_y = _to_gray01(ref_rgb)
+    ref8 = (np.clip(ref_y * 255, 0, 255)).astype(np.uint8)
     blur = cv2.GaussianBlur(ref8, (7, 7), 1.5).astype(np.float64) / 255.0
-    a = _to_gray01(ref_rgb)
-    b = _to_gray01(tst_rgb)
 
-    w = 1.0 / (1.0 + np.abs(a - blur) + eps)
-    wmse = np.sum(w * (a - b) ** 2) / np.sum(w)
+    w = 1.0 / (1.0 + np.abs(ref_y - blur) + eps)
+    wmse = np.sum(w[..., None] * (ref_rgb - tst_rgb) ** 2) / np.sum(w[..., None])
+
     if wmse == 0:
         return float("inf")
-    return float(10.0 * np.log10(1.0 / wmse))
+    return float(10.0 * np.log10((255.0 ** 2) / wmse))
 
 
 def SSIM(ref: ArrayLike, tst: ArrayLike) -> float:
@@ -345,4 +343,5 @@ def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
     err = np.abs(a - b)
     pass_map = (err < jnd_map)
     return float(np.mean(pass_map))
+
 
