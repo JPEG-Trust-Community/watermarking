@@ -96,16 +96,16 @@ def WPSNR(ref: ArrayLike, tst: ArrayLike, eps: float = 1e-6) -> float:
 
 
 def SSIM(ref: ArrayLike, tst: ArrayLike) -> float:
-    # Structural Similarity Index (SSIM) on grayscale
-    ref_rgb = _as_rgb(ref)
-    tst_rgb = _as_rgb(tst)
+    # Structural Similarity Index (SSIM) on rgb
+    ref_rgb = _as_rgb(ref).astype(np.float64)
+    tst_rgb = _as_rgb(tst).astype(np.float64)
     if ref_rgb.shape != tst_rgb.shape:
         ref_rgb, tst_rgb = _match_shapes_center_crop(ref_rgb, tst_rgb)
 
-    a = _to_gray01(ref_rgb)
-    b = _to_gray01(tst_rgb)
-    return float(ssim_fn(a, b, data_range=1.0))
-
+    ref_rgb = ref_rgb / 255.0
+    tst_rgb = tst_rgb / 255.0
+    return float(ssim_fn(ref_rgb, tst_rgb, data_range=1.0, channel_axis=-1))
+    
 # need to update and change to mays version
 def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
     # Full JND map pipeline (bg luminance, contrast masking, content complexity, edge protection).
@@ -343,5 +343,6 @@ def JNDPassRate(ref: ArrayLike, tst: ArrayLike) -> float:
     err = np.abs(a - b)
     pass_map = (err < jnd_map)
     return float(np.mean(pass_map))
+
 
 
