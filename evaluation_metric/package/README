@@ -1,24 +1,24 @@
 INSTALLATION:
 
 - Installing base dependencies:
-```bash
+
 pip install "watermarkbench @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
-```
+
 
 - Installing base dependencies + compressai:
-```bash
+
 pip install "watermarkbench[compressai] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
-```
+
 
 - Installing base dependencies + jxl:
-```bash
+
 pip install "watermarkbench[jxl] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
-```
+
 
 - Installing all required dependencies:
-```bash
+
 pip install "watermarkbench[all] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
-```
+
 
 
 IMPORTING:
