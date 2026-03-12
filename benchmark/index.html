@@ -68,11 +68,32 @@
     .section-anchor { scroll-margin-top: 24px; }
     .timeline-table td, .timeline-table th { vertical-align: top; }
     .tight-list li { margin-bottom: .4rem; }
+	.nav-menu {position: fixed; top: 20px; right: 20px; z-index: 999;}
   </style>
 </head>
-
 <body>
+<div class="nav-menu dropdown is-right" id="sectionMenu">
+  <div class="dropdown-trigger">
+    <button class="button is-dark is-rounded" onclick="toggleMenu()" aria-haspopup="true">
+      <span class="icon">
+        <i class="fas fa-ellipsis-v"></i>
+      </span>
+    </button>
+  </div>
 
+  <div class="dropdown-menu">
+    <div class="dropdown-content">
+      <a href="#overview" class="dropdown-item">Description & Goal</a>
+      <a href="#motivation" class="dropdown-item">Motivation & Background</a>
+      <a href="#participation" class="dropdown-item">Rules for Participation</a>
+      <a href="#evaluation" class="dropdown-item">Evaluation</a>
+      <a href="#dataset" class="dropdown-item">Dataset</a>
+      <a href="#timeline" class="dropdown-item">Deadlines</a>
+      <a href="#organizers" class="dropdown-item">Organizers</a>
+    </div>
+  </div>
+</div>
+	
   <!-- Scroll to Top Button -->
   <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
     <i class="fas fa-chevron-up"></i>
@@ -530,6 +551,11 @@
   </main>
 
   <script>
+    function toggleMenu() {
+      document.getElementById("sectionMenu").classList.toggle("is-active");
+    }
+  </script>
+  <script>
     function scrollToTop() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -537,4 +563,5 @@
 
 </body>
 </html>
+
 
