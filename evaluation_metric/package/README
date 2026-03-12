@@ -1,16 +1,24 @@
 INSTALLATION:
 
 - Installing base dependencies:
-pip install git+https://github.com/JPEG-Trust-Community/watermarking/tree/main/evaluation_metric/package.git
+```bash
+pip install "watermarkbench @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
+```
 
 - Installing base dependencies + compressai:
-pip install "git+https://github.com/JPEG-Trust-Community/watermarking/tree/main/evaluation_metric/package.git#egg=watermarkbench[compressai]"
+```bash
+pip install "watermarkbench[compressai] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
+```
 
 - Installing base dependencies + jxl:
-pip install "git+https://github.com/JPEG-Trust-Community/watermarking/tree/main/evaluation_metric/package.git#egg=watermarkbench[jxl]"
+```bash
+pip install "watermarkbench[jxl] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
+```
 
 - Installing all required dependencies:
-pip install "git+https://github.com/JPEG-Trust-Community/watermarking/tree/main/evaluation_metric/package.git#egg=watermarkbench[all]"
+```bash
+pip install "watermarkbench[all] @ git+https://github.com/JPEG-Trust-Community/watermarking.git#subdirectory=evaluation_metric/package"
+```
 
 
 IMPORTING:
@@ -21,7 +29,7 @@ import watermarkbench as wb
 ATTACKING
 
 - rotate:
-out_path = wb.attack.rotate("image.png", 15) # rotates image.png by 10 degrees
+out_path = wb.attack.rotate("image.png", 15) # rotates image.png by 15 degrees
 
 - crop:
 out_path = wb.attack.crop("image.png", 10) # crops image.png by 10 percent
@@ -44,7 +52,7 @@ out_path = wb.attack.jpegai("image.png", 1) # compresses image.png by Q = 1
 - jpegxl:
 out_path = wb.attack.jpegxl("image.png", 12) # compresses image.png by D = 12
 
-- gauissian noise:
+- gaussian noise:
 out_path = wb.attack.gaussian_noise("image.png", 0.01) # adds noise to image.png by σ = 0.01
 
 - speckle noise:
