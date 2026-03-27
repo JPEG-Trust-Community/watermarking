@@ -561,6 +561,55 @@ def median_filtering(x: torch.Tensor, k: int) -> torch.Tensor:
 
     return _apply_attack_preserve(x, _core)
 
+def gamma_correction(x: torch.Tensor, gamma: float = 1.5) -> torch.Tensor:
+    # Apply gamma correction: out = in^gamma, where in/out are in [0,1] space
+    def _core(z: torch.Tensor) -> torch.Tensor:
+        z01 = ((z.clamp(-1.0, 1.0) + 1.0) / 2.0).clamp(0.0, 1.0)
+        out01 = z01.pow(float(gamma)).clamp(0.0, 1.0)
+        return (out01 * 2.0 - 1.0).clamp(-1.0, 1.0)
+    return _apply_attack_preserve(x, _core)
+
+
+def histogram_equalization(x: torch.Tensor, strength: float = 1.0) -> torch.Tensor:
+    # Apply per-channel histogram equalization blended with the original.
+    # strength=1.0 → fully equalized; strength=0.0 → original unchanged.
+    def _core(z: torch.Tensor) -> torch.Tensor:
+        device = z.device
+        z_cpu = z.detach().cpu().clamp(-1.0, 1.0)
+        B, C, H, W = z_cpu.shape
+        s = float(strength)
+        outs = []
+
+        for i in range(B):
+            z01 = (z_cpu[i] + 1.0) / 2.0
+            img_u8 = (z01 * 255.0).round().clamp(0, 255).to(torch.uint8).numpy()
+            out_channels = []
+            for c in range(C):
+                ch = img_u8[c]  # HxW uint8
+                hist, _ = np.histogram(ch.flatten(), bins=256, range=[0, 256])
+                cdf = hist.cumsum()
+                cdf_min = int(cdf[cdf > 0].min())
+                n_pixels = H * W
+                denom = n_pixels - cdf_min
+                if denom == 0:
+                    out_channels.append(torch.from_numpy(ch.copy()))
+                    continue
+                lut = np.clip(
+                    np.round((cdf - cdf_min) / denom * 255.0), 0, 255
+                ).astype(np.uint8)
+                equalized = lut[ch]
+                blended = np.clip(
+                    np.round((1.0 - s) * ch + s * equalized), 0, 255
+                ).astype(np.uint8)
+                out_channels.append(torch.from_numpy(blended))
+
+            out_u8 = torch.stack(out_channels, dim=0)  # CHW uint8
+            out01 = out_u8.to(torch.float32) / 255.0
+            outs.append((out01 * 2.0 - 1.0).clamp(-1.0, 1.0))
+
+        return torch.stack(outs, dim=0).to(device)
+
+    return _apply_attack_preserve(x, _core)
 
 # ============================================================
 # 4) AI pipeline
