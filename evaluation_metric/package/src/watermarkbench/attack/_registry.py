@@ -21,6 +21,8 @@ ATTACKS: Dict[str, Callable] = {
     "brightness": _core.brightness,
     "sharpness": _core.sharpness,
     "median_filtering": _core.median_filtering,
+    "gamma_correction": _core.gamma_correction,
+    "histogram_equalization": _core.histogram_equalization,
     "remove_ai": _core.remove_ai,
     "replace_ai": _core.replace_ai,
     "create_ai": _core.create_ai,
