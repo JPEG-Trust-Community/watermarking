@@ -70,6 +70,12 @@ out_path = wb.attack.sharpness("image.png", 1.25) # sharpens image.png by 1.25x
 - median filtering:
 out_path = wb.attack.median_filtering("image.png", 5) # median filters image.png by k = 5 x 5
 
+- gamma correction:
+out_path = wb.attack.gamma_correction("image.png", 1.5) # applies gamma correction to image.png by gamma = 1.5
+
+- histogram equalization:
+out_path = wb.attack.histogram_equalization("image.png", 1.0) # applies histogram equalization to image.png by strength = 1.0
+
 - ai removal:
 out_path = wb.attack.remove_ai("image.png") # uses AI to remove an object in image.png
 
